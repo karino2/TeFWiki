@@ -40,6 +40,7 @@ import java.util.*
 class MainActivity : AppCompatActivity() {
     companion object {
         const val REQUEST_OPEN_TREE_ID = 1
+        const val REQUEST_EDIT_MD = 2
 
         @JvmField
         val WIKI_LINK: IElementType = MarkdownElementType("WIKI_LINK")
@@ -56,6 +57,8 @@ class MainActivity : AppCompatActivity() {
 
         fun showMessage(ctx: Context, msg : String) = Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
     }
+
+    fun showMessage(msg: String) = showMessage(this, msg)
 
     val webView : WebView by lazy {
         val view = findViewById<WebView>(R.id.webView)
@@ -98,7 +101,7 @@ class MainActivity : AppCompatActivity() {
         if (urlstr == null) {
             val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
             startActivityForResult(intent, Companion.REQUEST_OPEN_TREE_ID)
-            showMessage(this, "Choose wiki folder")
+            showMessage("Choose wiki folder")
             return
         }
 
@@ -218,12 +221,12 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    var current = "Home.md"
+    var currentFileName = "Home.md"
 
-    fun openWikiLink(name: String) {
-        val doc = wikiRoot.findFile(name)
+    fun openWikiLink(fileName: String) {
+        val doc = wikiRoot.findFile(fileName)
         if (doc == null) {
-            showMessage(this, "NYI: $name is newly created")
+            startEditActivity(fileName, "")
             return
         }
         openMd(doc)
@@ -275,20 +278,33 @@ class MainActivity : AppCompatActivity() {
 
     """.trimIndent()
 
+    var mdSrc = ""
+
     fun openMd( file: DocumentFile ) {
-        current = file.name!!
         val istream = contentResolver.openInputStream(file.uri)
         istream.use {
             val reader = BufferedReader(InputStreamReader(it))
             val src = reader.readText()
-            val html = parseMd(src)
-
-            val title = current.removeSuffix(".md")
-            val mtime = Date(file.lastModified())
-            val header = buildHeader(title, mtime)
-
-            webView.loadDataWithBaseURL("file:///assets/", header+html+footer, "text/html", null, null)
+            openMdContent(file, src)
         }
+    }
+
+    private fun openMdContent(file: DocumentFile, content: String) {
+        currentFileName = file.name!!
+        mdSrc = content
+        val html = parseMd(content)
+
+        val title = currentFileName.removeSuffix(".md")
+        val mtime = Date(file.lastModified())
+        val header = buildHeader(title, mtime)
+
+        webView.loadDataWithBaseURL(
+            "file:///assets/",
+            header + html + footer,
+            "text/html",
+            null,
+            null
+        )
     }
 
     val defaultHome = """
@@ -305,13 +321,25 @@ class MainActivity : AppCompatActivity() {
     """.trimIndent()
 
     fun ensureHome(dir: DocumentFile) : DocumentFile {
-        val home = dir.findFile("Home.md")
-        if ( home != null)
-            return home
+        dir.findFile("Home.md")?.let { return it }
 
-        val doc = dir.createFile("text/markdown", "Home.md") ?: throw Exception("Can't create  Home.md")
+        val doc = dir.createFile("text/markdown", "Home.md") ?: throw Error("Can't create  Home.md")
         writeContent(doc, defaultHome)
         return doc
+    }
+
+    fun createOrWriteContent(fileName: String, content: String) : DocumentFile? {
+        wikiRoot.findFile(fileName)?.let {
+            writeContent(it, content)
+            return it
+        }
+
+        wikiRoot.createFile("text/markdown", fileName)?.let {
+            writeContent(it, content)
+            return it
+        }
+        showMessage("Can't create file $fileName")
+        return null
     }
 
     fun writeContent(file: DocumentFile, content:String) {
@@ -326,7 +354,7 @@ class MainActivity : AppCompatActivity() {
 
     val wikiRoot : DocumentFile
     get() {
-        return DocumentFile.fromTreeUri(this, Uri.parse(lastUriStr(this))) ?: throw Error("can't open dir")
+        return DocumentFile.fromTreeUri(this, Uri.parse(lastUriStr(this))) ?: throw Exception("can't open dir")
     }
 
     fun updateFolder() {
@@ -350,16 +378,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, resultData: Intent?) {
-        if (requestCode == Companion.REQUEST_OPEN_TREE_ID &&
-                resultCode == Activity.RESULT_OK)
-        {
-            resultData?.data?.also {uri ->
-                contentResolver.takePersistableUriPermission(uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                writeLastUriStr(this, uri.toString())
-                updateFolder()
+        when(requestCode) {
+            REQUEST_OPEN_TREE_ID-> {
+                if(resultCode == Activity.RESULT_OK) {
+                    resultData?.data?.also {uri ->
+                        contentResolver.takePersistableUriPermission(uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                        writeLastUriStr(this, uri.toString())
+                        updateFolder()
+                    }
+                    return
+                }
             }
-            return
+            REQUEST_EDIT_MD-> {
+                if(resultCode == Activity.RESULT_OK) {
+                    val fileName = resultData!!.getStringExtra("MD_FILE_NAME")
+                    val content = resultData!!.getStringExtra("MD_CONTENT")
+                    createOrWriteContent(fileName, content)?.let {
+                        openMdContent(it, content)
+                    }
+                }
+
+            }
         }
         super.onActivityResult(requestCode, resultCode, resultData)
     }
@@ -372,11 +412,20 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when(item.itemId) {
             R.id.menu_item_edit -> {
-                showMessage(this, "edit")
+                startEditActivity(currentFileName, mdSrc)
                 return true
             }
         }
         return super.onOptionsItemSelected(item)
+    }
+
+    private fun startEditActivity(fileName: String, content: String) {
+        Intent(this, EditActivity::class.java).apply {
+            putExtra("MD_FILE_NAME", fileName)
+            putExtra("MD_CONTENT", content)
+        }.also {
+            startActivityForResult(it, REQUEST_EDIT_MD)
+        }
     }
 
 }
