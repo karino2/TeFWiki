@@ -288,10 +288,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     val defaultHome = """
-        # Home
+        # Heading
 
         Initial wiki page.
         Please Edit this file.
+        
+        - list1
+        - list2
+        - list3
 
         [[HelloLink]]
     """.trimIndent()
