@@ -35,6 +35,8 @@ class EditActivity : AppCompatActivity() {
         intent?.let {
             fileName = it.getStringExtra("MD_FILE_NAME")
             editText.setText(it.getStringExtra("MD_CONTENT"))
+
+            supportActionBar!!.title = fileName
         }
     }
 
