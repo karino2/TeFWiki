@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">TeFWiki</string>
+    <string name="drawer_open">Open Drawer</string>
+    <string name="drawer_close">Close Drawer</string>
+    <string name="links_label">Links:</string>
+    <string name="recents_label">Recents</string>
 </resources>

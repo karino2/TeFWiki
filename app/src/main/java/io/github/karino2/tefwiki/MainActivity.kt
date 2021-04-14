@@ -3,16 +3,22 @@ package io.github.karino2.tefwiki
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
-import android.view.Menu
-import android.view.MenuItem
+import android.view.*
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.ArrayAdapter
+import android.widget.ListView
+import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.documentfile.provider.DocumentFile
+import androidx.drawerlayout.widget.DrawerLayout
+import com.google.android.material.navigation.NavigationView
 import org.intellij.markdown.IElementType
 import org.intellij.markdown.MarkdownElementType
 import org.intellij.markdown.MarkdownElementTypes
@@ -87,6 +93,59 @@ class MainActivity : AppCompatActivity() {
         startActivity(Intent(Intent.ACTION_VIEW).apply { data = url })
     }
 
+    val drawerLayout : DrawerLayout by lazy { findViewById(R.id.drawer_layout) }
+
+    val drawerToggle: ActionBarDrawerToggle by lazy {
+        object : ActionBarDrawerToggle(this, drawerLayout, R.string.drawer_open, R.string.drawer_close) {
+            override fun onDrawerOpened(drawerView: View) {
+                super.onDrawerOpened(drawerView)
+                // setup recent here.
+
+                populateRecents()
+            }
+        }
+    }
+
+    var recentsUpdated = false
+
+    fun populateRecents() {
+        if (recentsUpdated)
+            return
+
+        val files =
+            wikiRoot.listFiles()
+                .filter{ it.name!!.endsWith(".md") }
+                .sortedByDescending { it.lastModified() }
+                .take(20)
+
+        recentsList.adapter = object: ArrayAdapter<DocumentFile>(this, R.layout.recent_item, files) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = convertView ?: layoutInflater.inflate(R.layout.recent_item, null)
+                val doc = getItem(position)!!
+                view.findViewById<TextView>(R.id.recentFileName).text = doc.name!!.removeSuffix(".md")
+                view.findViewById<TextView>(R.id.recentDate).text = formatMTime(doc.lastModified())
+                view.tag = doc
+                return view
+            }
+        }
+
+        // .forEach{ subMenu.add(0, R.string.app_name, 0, it.name!!.removeSuffix(".md"))}
+        recentsUpdated = true
+    }
+
+    val recentsList : ListView by lazy {
+        val list = findViewById<ListView>(R.id.navigation_recents_list)
+        list.setOnItemClickListener { parent, view, position, id ->
+            val doc = view.tag as DocumentFile
+            openMd(doc)
+            drawerLayout.closeDrawers()
+        }
+        list
+    }
+
+    val navigationView : NavigationView by lazy {
+        findViewById(R.id.navigation_view)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -95,6 +154,17 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(findViewById(R.id.toolbar_main))
         supportActionBar!!.setDisplayHomeAsUpEnabled(true)
         supportActionBar!!.setHomeButtonEnabled(true)
+
+        drawerLayout.addDrawerListener(drawerToggle)
+        drawerToggle.isDrawerIndicatorEnabled = true
+
+        navigationView.setNavigationItemSelectedListener { item->
+            showMessage(item.title.toString())
+            drawerLayout.closeDrawers()
+            true
+        }
+
+        drawerToggle.syncState()
 
         val urlstr = lastUriStr(this)
 
@@ -106,6 +176,16 @@ class MainActivity : AppCompatActivity() {
         }
 
         updateFolder()
+    }
+
+    override fun onPostCreate(savedInstanceState: Bundle?) {
+        super.onPostCreate(savedInstanceState)
+        drawerToggle.syncState()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        drawerToggle.syncState()
     }
 
     class WikiLinkParser : SequentialParser {
@@ -232,9 +312,13 @@ class MainActivity : AppCompatActivity() {
         openMd(doc)
     }
 
-    fun buildHeader(title: String, lastModified: Date) : String {
+    fun formatMTime( lastModified: Long ) : String {
         val sdf = SimpleDateFormat("YYYY-MM-dd HH:mm")
-        val mtime = sdf.format(lastModified.time)
+        return sdf.format(lastModified)
+    }
+
+    fun buildHeader(title: String, lastModified: Long) : String {
+        val mtime = formatMTime(lastModified)
         return """
     <!DOCTYPE html>
     <html>
@@ -295,8 +379,7 @@ class MainActivity : AppCompatActivity() {
         val html = parseMd(content)
 
         val title = currentFileName.removeSuffix(".md")
-        val mtime = Date(file.lastModified())
-        val header = buildHeader(title, mtime)
+        val header = buildHeader(title, file.lastModified())
 
         webView.loadDataWithBaseURL(
             "file:///assets/",
@@ -362,16 +445,6 @@ class MainActivity : AppCompatActivity() {
             val df = wikiRoot
             val home = ensureHome(df)
             openMd(home)
-            /*
-            val files = df.listFiles()
-            val text = files.map {
-                val name = it.name
-                val lm = it.lastModified()
-                val uri = it.uri
-                "$name, $lm, $uri"
-            }.joinToString("\n")
-            editText.setText(text)
-             */
         }catch (e: RuntimeException) {
             showMessage(this, e.message!!)
         }
@@ -416,6 +489,10 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
         }
+
+        if(drawerToggle.onOptionsItemSelected(item))
+            return true
+
         return super.onOptionsItemSelected(item)
     }
 

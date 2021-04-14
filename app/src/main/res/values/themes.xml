@@ -12,6 +12,15 @@
         <!-- Status bar color. -->
         <item name="android:statusBarColor" tools:targetApi="l">?attr/colorPrimaryVariant</item>
         <!-- Customize your theme here. -->
+        <item name="toolbarStyle">@style/TeFWiki.Toolbar</item>
+        <item name="drawerArrowStyle">@style/TeFWiki.DrawerArrowStyle</item>
+    </style>
+    <style name="TeFWiki.DrawerArrowStyle" parent="@style/Widget.AppCompat.DrawerArrowToggle">
+        <item name="color">?colorOnPrimary</item>
+    </style>
+    <style name="TeFWiki.Toolbar" parent="Widget.MaterialComponents.Toolbar">
+        <item name="titleTextAppearance">@style/TextAppearance.MaterialComponents.Headline6</item>
+        <item name="titleTextColor">?colorOnPrimary</item>
     </style>
     <style name="Theme.TeFWiki.ActionBar" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
         <!-- Primary brand color. -->
