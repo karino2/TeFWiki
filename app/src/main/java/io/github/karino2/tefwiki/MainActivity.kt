@@ -335,34 +335,25 @@ class MainActivity : AppCompatActivity() {
     <body id="body" style="background: #FBF8ED">
         <div class="section">
             <div class="container">
-                <div class="columns">
-                    <div class="column is-four-fifths">
-                        <nav class="level">
-                            <div class="level-left">
-                                <div class="level-item">
-                                    <div class="container">
-                                        <h1 class="title" id="title">$title</h1>
-                                        <div class="content is-small">
-                                            <span id="date">${mtime}</span>
-                                        </div>
-                                   </div>
-                                </div>                    
-                            </div>
-                        </nav>
-                    <section class="section">
+                <section class="hero is-dark">
+                    <div class="hero-body">
+                        <div class="container">
+                            <h1 class="title" id="title">$title</h1>
+                            <h3 class="subtitle" id="date">${mtime}</h3>
+                        </div>
+                    </div>
+                </section>
+                <section class="section">
                 """.trimIndent()
 
     }
 
     val footer = """
-                            </section>
-                        </div>
-                    </div>
-                </div>    
+                </section>
             </div>
-        </body>
-        </html>
-
+        </div>
+    </body>
+    </html>
     """.trimIndent()
 
     var mdSrc = ""
@@ -385,7 +376,7 @@ class MainActivity : AppCompatActivity() {
         val header = buildHeader(title, file.lastModified())
 
         webView.loadDataWithBaseURL(
-            "file:///assets/",
+            "file:///android_asset/",
             header + html + footer,
             "text/html",
             null,
