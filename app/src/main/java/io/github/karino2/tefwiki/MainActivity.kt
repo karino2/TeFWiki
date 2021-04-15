@@ -17,6 +17,7 @@ import android.widget.Toast
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.widget.NestedScrollView
 import androidx.documentfile.provider.DocumentFile
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.coroutineScope
@@ -372,6 +373,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    val nestedScrollView : NestedScrollView by lazy { findViewById(R.id.nestedScrollView) }
+
     private fun openMdContent(file: DocumentFile, content: String) {
         currentFileName = file.name!!
         mdSrc = content
@@ -379,7 +382,7 @@ class MainActivity : AppCompatActivity() {
 
         val title = currentFileName.removeSuffix(".md")
         val header = buildHeader(title, file.lastModified())
-
+        
         webView.loadDataWithBaseURL(
             "file:///android_asset/",
             header + html + footer,
@@ -387,6 +390,7 @@ class MainActivity : AppCompatActivity() {
             null,
             null
         )
+        nestedScrollView.scrollTo(0, 0)
     }
 
     val defaultHome = """
