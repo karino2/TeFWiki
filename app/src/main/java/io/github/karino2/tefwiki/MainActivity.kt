@@ -14,6 +14,7 @@ import android.widget.ArrayAdapter
 import android.widget.ListView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
@@ -47,6 +48,7 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.collections.ArrayDeque
 import kotlin.coroutines.CoroutineContext
 
 class MainActivity : AppCompatActivity() {
@@ -102,7 +104,13 @@ class MainActivity : AppCompatActivity() {
     }
 
 
+    val history = ArrayDeque<String>()
 
+    fun pushHistory(doc: DocumentFile) {
+        if (!history.isEmpty() && history.last() == doc.name)
+            return
+        history.addLast(doc.name!!)
+    }
 
     val recentFiles : ArrayList<DocumentFile> = ArrayList()
 
@@ -174,6 +182,26 @@ class MainActivity : AppCompatActivity() {
 
         drawerToggle.syncState()
         recentsList.adapter = adapter
+
+        onBackPressedDispatcher.addCallback(this, object: OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if(history.isEmpty()) {
+                    finish()
+                    return
+                }
+                if (history.last() == currentFileName) {
+                    // first history back.
+                    history.removeLast()
+                    if(history.isEmpty()) {
+                        finish()
+                        return
+                    }
+                }
+
+                val last = history.last()
+                openWikiLinkWithoutHistory(last)
+            }
+        })
 
         val urlstr = lastUriStr(this)
 
@@ -274,8 +302,6 @@ class MainActivity : AppCompatActivity() {
         override fun closeTag(visitor: HtmlGenerator.HtmlGeneratingVisitor, text: String, node: ASTNode) {
             visitor.consumeTagClose("div")
         }
-
-
     }
 
     fun parseMd(md:String) : String {
@@ -290,7 +316,6 @@ class MainActivity : AppCompatActivity() {
                             ReferenceLinkParser(),
                             StrikeThroughParser(),
                             EmphStrongParser())
-
                 }
             }
             override fun createHtmlGeneratingProviders(
@@ -320,6 +345,17 @@ class MainActivity : AppCompatActivity() {
         }
         openMd(doc)
     }
+
+    fun openWikiLinkWithoutHistory(fileName: String) {
+        val doc = wikiRoot.findFile(fileName)
+        if (doc == null) {
+            showMessage("File in history is deleted. Finish activity.")
+            finish()
+            return
+        }
+        openMdWithoutHistory(doc)
+    }
+
 
     fun formatMTime( lastModified: Long ) : String {
         val sdf = SimpleDateFormat("YYYY-MM-dd HH:mm")
@@ -364,13 +400,18 @@ class MainActivity : AppCompatActivity() {
 
     var mdSrc = ""
 
-    fun openMd( file: DocumentFile ) {
+    fun openMdWithoutHistory( file: DocumentFile ) {
         val istream = contentResolver.openInputStream(file.uri)
         istream.use {
             val reader = BufferedReader(InputStreamReader(it))
             val src = reader.readText()
             openMdContent(file, src)
         }
+    }
+
+    fun openMd( file: DocumentFile ) {
+        openMdWithoutHistory(file)
+        pushHistory(file)
     }
 
     val nestedScrollView : NestedScrollView by lazy { findViewById(R.id.nestedScrollView) }
@@ -382,7 +423,7 @@ class MainActivity : AppCompatActivity() {
 
         val title = currentFileName.removeSuffix(".md")
         val header = buildHeader(title, file.lastModified())
-        
+
         webView.loadDataWithBaseURL(
             "file:///android_asset/",
             header + html + footer,
