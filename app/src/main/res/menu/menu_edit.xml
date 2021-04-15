@@ -4,7 +4,7 @@
 
     <item
         android:id="@+id/menu_item_brabra"
-        android:title="[[]]"
+        android:title="[[A]]"
         app:showAsAction="always" />
     <item
         android:id="@+id/menu_item_save"
