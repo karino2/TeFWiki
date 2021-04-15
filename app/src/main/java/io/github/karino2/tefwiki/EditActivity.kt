@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.os.PersistableBundle
 import android.view.Menu
 import android.view.MenuItem
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 
 class EditActivity : AppCompatActivity() {
@@ -46,6 +47,13 @@ class EditActivity : AppCompatActivity() {
         return super.onCreateOptionsMenu(menu)
     }
 
+    fun closeSoftKey() {
+        currentFocus?.let {
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(it.windowToken, 0)
+        }
+    }
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when(item.itemId) {
             R.id.menu_item_save -> {
@@ -53,6 +61,7 @@ class EditActivity : AppCompatActivity() {
                     putExtra("MD_FILE_NAME", fileName)
                     putExtra("MD_CONTENT", editText.text.toString())
                 }.also { setResult(RESULT_OK, it) }
+                closeSoftKey()
                 finish()
                 return true
             }
