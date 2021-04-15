@@ -19,7 +19,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.documentfile.provider.DocumentFile
 import androidx.drawerlayout.widget.DrawerLayout
+import androidx.lifecycle.coroutineScope
+import androidx.lifecycle.whenStarted
 import com.google.android.material.navigation.NavigationView
+import kotlinx.coroutines.*
 import org.intellij.markdown.IElementType
 import org.intellij.markdown.MarkdownElementType
 import org.intellij.markdown.MarkdownElementTypes
@@ -43,6 +46,7 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.coroutines.CoroutineContext
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -67,6 +71,7 @@ class MainActivity : AppCompatActivity() {
 
     fun showMessage(msg: String) = showMessage(this, msg)
 
+
     val webView : WebView by lazy {
         val view = findViewById<WebView>(R.id.webView)
         view.webViewClient = object : WebViewClient() {
@@ -74,11 +79,6 @@ class MainActivity : AppCompatActivity() {
                 if (request.url.scheme == "tefwiki")
                 {
                     openWikiLink(request.url.host!!)
-                    /*
-                    val path = request.url.host
-                    val tmp = request.url.toString()
-                    showMessage(this@MainActivity, "tefwiki link $tmp")
-                     */
                 }
                 else
                 {
@@ -97,29 +97,16 @@ class MainActivity : AppCompatActivity() {
     val drawerLayout : DrawerLayout by lazy { findViewById(R.id.drawer_layout) }
 
     val drawerToggle: ActionBarDrawerToggle by lazy {
-        object : ActionBarDrawerToggle(this, drawerLayout, R.string.drawer_open, R.string.drawer_close) {
-            override fun onDrawerOpened(drawerView: View) {
-                super.onDrawerOpened(drawerView)
-                // setup recent here.
-
-                populateRecents()
-            }
-        }
+        ActionBarDrawerToggle(this, drawerLayout, R.string.drawer_open, R.string.drawer_close)
     }
 
-    var recentsUpdated = false
 
-    fun populateRecents() {
-        if (recentsUpdated)
-            return
 
-        val files =
-            wikiRoot.listFiles()
-                .filter{ it.name!!.endsWith(".md") }
-                .sortedByDescending { it.lastModified() }
-                .take(20)
 
-        recentsList.adapter = object: ArrayAdapter<DocumentFile>(this, R.layout.recent_item, files) {
+    val recentFiles : ArrayList<DocumentFile> = ArrayList()
+
+    val adapter : ArrayAdapter<DocumentFile> by lazy {
+        object: ArrayAdapter<DocumentFile>(this, R.layout.recent_item, recentFiles) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val view = convertView ?: layoutInflater.inflate(R.layout.recent_item, null)
                 val doc = getItem(position)!!
@@ -129,9 +116,26 @@ class MainActivity : AppCompatActivity() {
                 return view
             }
         }
+    }
 
-        // .forEach{ subMenu.add(0, R.string.app_name, 0, it.name!!.removeSuffix(".md"))}
-        recentsUpdated = true
+    fun updateRecents() {
+        lifecycle.coroutineScope.launch(Dispatchers.IO) {
+            whenStarted {
+                val files =
+                        wikiRoot.listFiles()
+                                .filter{ it.name!!.endsWith(".md") }
+                                .sortedByDescending { it.lastModified() }
+                                .take(20)
+
+                recentFiles.clear()
+                recentFiles.addAll(files)
+                withContext(Dispatchers.Main) {
+                    adapter.notifyDataSetChanged()
+                }
+
+            }
+
+        }
     }
 
     val recentsList : ListView by lazy {
@@ -168,6 +172,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         drawerToggle.syncState()
+        recentsList.adapter = adapter
 
         val urlstr = lastUriStr(this)
 
@@ -439,6 +444,7 @@ class MainActivity : AppCompatActivity() {
             val df = wikiRoot
             val home = ensureHome(df)
             openMd(home)
+            updateRecents()
         }catch (e: RuntimeException) {
             showMessage(this, e.message!!)
         }
@@ -463,6 +469,7 @@ class MainActivity : AppCompatActivity() {
                     val content = resultData!!.getStringExtra("MD_CONTENT")
                     createOrWriteContent(fileName, content)?.let {
                         openMdContent(it, content)
+                        updateRecents()
                     }
                 }
 
@@ -498,5 +505,6 @@ class MainActivity : AppCompatActivity() {
             startActivityForResult(it, REQUEST_EDIT_MD)
         }
     }
+
 
 }
