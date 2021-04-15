@@ -7,12 +7,16 @@
         android:id="@+id/recentFileName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:paddingStart="40dp"
+        android:paddingTop="10dp"
         android:text="TextView"
-        android:textAppearance="@style/TextAppearance.AppCompat.Large" />
+        android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
 
     <TextView
         android:id="@+id/recentDate"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:paddingStart="40dp"
+        android:paddingBottom="10dp"
         android:text="TextView" />
 </LinearLayout>
