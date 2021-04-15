@@ -65,6 +65,12 @@ class EditActivity : AppCompatActivity() {
                 finish()
                 return true
             }
+            R.id.menu_item_brabra -> {
+                val curPos = editText.selectionEnd
+                val text = editText.text
+                editText.setText(text.subSequence(0, curPos).toString() + "[[]]" + text.subSequence(curPos, text.length))
+                editText.setSelection(curPos+2)
+            }
             android.R.id.home -> {
                 finish()
                 return true
