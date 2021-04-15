@@ -14,7 +14,6 @@
         <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:fillViewport="true"
             app:layout_behavior="com.google.android.material.appbar.AppBarLayout$ScrollingViewBehavior">
             <WebView
                 android:id="@+id/webView"
@@ -44,7 +43,7 @@
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:layout_gravity="start">
-        <include layout="@layout/drawer_contents"/>
+        <include layout="@layout/drawer_contents" />
 
     </com.google.android.material.navigation.NavigationView>
 
