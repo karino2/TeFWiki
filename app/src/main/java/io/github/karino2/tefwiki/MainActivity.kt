@@ -297,7 +297,7 @@ class MainActivity : AppCompatActivity() {
 
     class MdRootGenerator : OpenCloseGeneratingProvider() {
         override fun openTag(visitor: HtmlGenerator.HtmlGeneratingVisitor, text: String, node: ASTNode) {
-            visitor.consumeTagOpen(node, "div", "id=\"content-root\" class=\"content\"")
+            visitor.consumeTagOpen(node, "div", " id=\"content-root\" class=\"content\"")
         }
         override fun closeTag(visitor: HtmlGenerator.HtmlGeneratingVisitor, text: String, node: ASTNode) {
             visitor.consumeTagClose("div")
@@ -375,7 +375,6 @@ class MainActivity : AppCompatActivity() {
         <link rel="stylesheet" href="./bulma.css">
     </head>
     <body id="body" style="background: #FBF8ED">
-        <div class="section">
             <div class="container">
                 <section class="hero is-dark">
                     <div class="hero-body">
@@ -393,7 +392,6 @@ class MainActivity : AppCompatActivity() {
     val footer = """
                 </section>
             </div>
-        </div>
     </body>
     </html>
     """.trimIndent()
