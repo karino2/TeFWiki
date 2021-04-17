@@ -12,4 +12,9 @@
         android:icon="@android:drawable/ic_menu_rotate"
         android:title="Reload"
         app:showAsAction="always" />
+    <item
+        android:id="@+id/menu_item_setting"
+        android:icon="@android:drawable/ic_menu_preferences"
+        android:title="Setting"
+        app:showAsAction="ifRoom" />
 </menu>

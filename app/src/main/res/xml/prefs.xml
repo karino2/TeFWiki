@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <CheckBoxPreference
+        android:defaultValue="false"
+        android:key="use_external_editor"
+        android:title="@string/label_enable_external_editor"
+        app:summary="@string/summary_enable_external_editor" />
+    <Preference
+        android:defaultValue="false"
+        android:key="reset_root_url"
+        android:summary="@string/summary_reset_wiki_root_dir"
+        android:title="@string/label_reset_wiki_root_dir" />
+</PreferenceScreen>

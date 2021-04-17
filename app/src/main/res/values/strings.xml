@@ -4,4 +4,8 @@
     <string name="drawer_close">Close Drawer</string>
     <string name="links_label">Links:</string>
     <string name="recents_label">Recents</string>
+    <string name="label_enable_external_editor">External editor</string>
+    <string name="summary_enable_external_editor">Use external markdown editor.</string>
+    <string name="label_reset_wiki_root_dir">Reset root</string>
+    <string name="summary_reset_wiki_root_dir">Reset wiki root dir.</string>
 </resources>

@@ -53,6 +53,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val REQUEST_OPEN_TREE_ID = 1
         const val REQUEST_EDIT_MD = 2
+        const val REQUEST_SETTING = 3
 
         @JvmField
         val WIKI_LINK: IElementType = MarkdownElementType("WIKI_LINK")
@@ -64,6 +65,9 @@ class MainActivity : AppCompatActivity() {
                 .putString(LAST_URI_KEY, path)
                 .commit()
 
+        fun resetLastUriStr(ctx: Context) = sharedPreferences(ctx).edit()
+            .putString(LAST_URI_KEY, null)
+            .commit()
 
         private fun sharedPreferences(ctx: Context) = ctx.getSharedPreferences("TEFWIKI", Context.MODE_PRIVATE)
 
@@ -159,6 +163,7 @@ class MainActivity : AppCompatActivity() {
         findViewById(R.id.navigation_view)
     }
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -201,16 +206,18 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        val urlstr = lastUriStr(this)
-
-        if (urlstr == null) {
-            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
-            startActivityForResult(intent, Companion.REQUEST_OPEN_TREE_ID)
-            showMessage("Choose wiki folder")
+        lastUriStr(this)?.let {
+            updateFolder()
             return
         }
 
-        updateFolder()
+        requestRootPickup()
+    }
+
+    private fun MainActivity.requestRootPickup() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+        startActivityForResult(intent, REQUEST_OPEN_TREE_ID)
+        showMessage("Choose wiki folder")
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
@@ -514,7 +521,12 @@ class MainActivity : AppCompatActivity() {
                         updateRecents()
                     }
                 }
-
+                return
+            }
+            REQUEST_SETTING-> {
+                if (null == lastUriStr(this))
+                    requestRootPickup()
+                return
             }
         }
         super.onActivityResult(requestCode, resultCode, resultData)
@@ -535,6 +547,9 @@ class MainActivity : AppCompatActivity() {
                 openWikiLinkWithoutHistory(currentFileName)
                 updateRecents()
                 return true
+            }
+            R.id.menu_item_setting -> {
+                startActivityForResult(Intent(this, SettingsActivity::class.java), REQUEST_SETTING)
             }
         }
 
