@@ -531,6 +531,11 @@ class MainActivity : AppCompatActivity() {
                 startEditActivity(currentFileName, mdSrc)
                 return true
             }
+            R.id.menu_item_reload -> {
+                openWikiLinkWithoutHistory(currentFileName)
+                updateRecents()
+                return true
+            }
         }
 
         if(drawerToggle.onOptionsItemSelected(item))
