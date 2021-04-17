@@ -9,4 +9,7 @@
     <string name="label_reset_wiki_root_dir">Reset root</string>
     <string name="summary_reset_wiki_root_dir">Reset wiki root dir.</string>
     <string name="label_editor_chooser_title">Choose markdown editor</string>
+    <string name="label_oss_license">OSS license</string>
+    <string name="summary_oss_license">Show OSS library licenses which TeFWiki use.</string>
+    <string name="label_ok">OK</string>
 </resources>
