@@ -503,9 +503,9 @@ class MainActivity : AppCompatActivity() {
         try{
             val df = wikiRoot
             val home = ensureHome(df)
+            history.clear()
             openMd(home)
             updateRecents()
-            history.clear()
         }catch (e: RuntimeException) {
             showMessage(this, e.message!!)
         }
