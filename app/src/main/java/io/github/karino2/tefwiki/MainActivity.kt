@@ -505,6 +505,7 @@ class MainActivity : AppCompatActivity() {
             val home = ensureHome(df)
             openMd(home)
             updateRecents()
+            history.clear()
         }catch (e: RuntimeException) {
             showMessage(this, e.message!!)
         }
