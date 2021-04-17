@@ -3,6 +3,7 @@ package io.github.karino2.tefwiki
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
@@ -23,6 +24,7 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.coroutineScope
 import androidx.lifecycle.whenStarted
+import androidx.preference.PreferenceManager
 import com.google.android.material.navigation.NavigationView
 import kotlinx.coroutines.*
 import org.intellij.markdown.IElementType
@@ -46,6 +48,7 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.prefs.PreferenceChangeEvent
 import kotlin.collections.ArrayDeque
 import kotlin.coroutines.CoroutineContext
 
@@ -76,6 +79,7 @@ class MainActivity : AppCompatActivity() {
 
     fun showMessage(msg: String) = showMessage(this, msg)
 
+    val settingPrefs : SharedPreferences by lazy {  PreferenceManager.getDefaultSharedPreferences(this) }
 
     val webView : WebView by lazy {
         val view = findViewById<WebView>(R.id.webView)
@@ -346,7 +350,7 @@ class MainActivity : AppCompatActivity() {
     fun openWikiLink(fileName: String) {
         val doc = wikiRoot.findFile(fileName)
         if (doc == null) {
-            startEditActivity(fileName, "")
+            startEditActivityForNew(fileName)
             return
         }
         openMd(doc)
@@ -559,7 +563,8 @@ class MainActivity : AppCompatActivity() {
         return super.onOptionsItemSelected(item)
     }
 
-    private fun startEditActivity(fileName: String, content: String) {
+
+    private fun startInternalEditActivity(fileName: String, content: String) {
         Intent(this, EditActivity::class.java).apply {
             putExtra("MD_FILE_NAME", fileName)
             putExtra("MD_CONTENT", content)
@@ -568,5 +573,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    val useExternalEditor : Boolean
+    get() = settingPrefs.getBoolean("use_external_editor", false)
+
+    private fun startEditActivity(fileName: String, content: String) {
+        if(useExternalEditor)
+        {
+            wikiRoot.findFile(fileName)?.let {doc ->
+                Intent().apply {
+                    action = Intent.ACTION_VIEW
+                    setDataAndType(doc.uri, "text/markdown")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                }.also { startActivity(Intent.createChooser(it, getString(R.string.label_editor_chooser_title))) }
+            }
+        }
+        else
+        {
+            startInternalEditActivity(fileName, content)
+        }
+    }
+
+    private fun startEditActivityForNew(fileName: String) {
+        startInternalEditActivity(fileName, "")
+    }
 
 }

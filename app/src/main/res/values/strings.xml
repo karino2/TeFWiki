@@ -8,4 +8,5 @@
     <string name="summary_enable_external_editor">Use external markdown editor.</string>
     <string name="label_reset_wiki_root_dir">Reset root</string>
     <string name="summary_reset_wiki_root_dir">Reset wiki root dir.</string>
+    <string name="label_editor_chooser_title">Choose markdown editor</string>
 </resources>
