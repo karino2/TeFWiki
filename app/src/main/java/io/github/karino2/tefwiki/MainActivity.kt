@@ -486,8 +486,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun writeContent(file: DocumentFile, content:String) {
-        val ostream = contentResolver.openOutputStream(file.uri)
-        ostream.use {
+        contentResolver.openOutputStream(file.uri, "wt").use {
             val writer = BufferedWriter(OutputStreamWriter(it))
             writer.use {
                 writer.write(content)
