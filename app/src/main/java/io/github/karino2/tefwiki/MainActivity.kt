@@ -31,13 +31,11 @@ import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.MarkdownTokenTypes
 import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.ast.getTextInNode
+import org.intellij.markdown.flavours.gfm.GFMElementTypes
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.flavours.gfm.GFMTokenTypes
 import org.intellij.markdown.flavours.gfm.StrikeThroughParser
-import org.intellij.markdown.html.GeneratingProvider
-import org.intellij.markdown.html.HtmlGenerator
-import org.intellij.markdown.html.OpenCloseGeneratingProvider
-import org.intellij.markdown.html.URI
+import org.intellij.markdown.html.*
 import org.intellij.markdown.parser.LinkMap
 import org.intellij.markdown.parser.MarkdownParser
 import org.intellij.markdown.parser.sequentialparsers.*
@@ -324,6 +322,7 @@ class MainActivity : AppCompatActivity() {
             ): Map<IElementType, GeneratingProvider> {
                 return super.createHtmlGeneratingProviders(linkMap, baseURI) + hashMapOf(
                         MarkdownElementTypes.MARKDOWN_FILE to MdRootGenerator(),
+                        GFMElementTypes.STRIKETHROUGH to SimpleInlineTagProvider("s", 2, -2),
                         WIKI_LINK to WikiLinkProvider(),
                 )
             }
