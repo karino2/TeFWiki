@@ -457,7 +457,7 @@ class MainActivity : AppCompatActivity() {
         Please Edit this file.
         
         - list1
-        - list2
+        - ~~list2~~
         - list3
 
         [[HelloLink]]
