@@ -19,6 +19,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.view.GravityCompat
 import androidx.core.widget.NestedScrollView
 import androidx.documentfile.provider.DocumentFile
 import androidx.drawerlayout.widget.DrawerLayout
@@ -192,6 +193,13 @@ class MainActivity : AppCompatActivity() {
 
         onBackPressedDispatcher.addCallback(this, object: OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
+                if(drawerLayout.isDrawerOpen(GravityCompat.START))
+                {
+                    drawerLayout.closeDrawer(GravityCompat.START)
+                    return
+                }
+
+
                 if(history.isEmpty()) {
                     finish()
                     return
