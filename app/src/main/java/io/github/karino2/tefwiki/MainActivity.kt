@@ -349,7 +349,14 @@ class MainActivity : AppCompatActivity() {
         val parser = MarkdownParser(flavour)
 
         val tree = parser.buildMarkdownTreeFromString(md)
-        return HtmlGenerator(md, tree, flavour).generateHtml()
+        return HtmlGenerator(md, tree, flavour).generateHtml(
+                HtmlGenerator.DefaultTagRenderer(
+                    {node, tagName, attributes->
+                        if (node.type == GFMElementTypes.TABLE)
+                            attributes + "class=\"table is-striped\""
+                        else
+                            attributes
+                    }, false))
     }
 
 
