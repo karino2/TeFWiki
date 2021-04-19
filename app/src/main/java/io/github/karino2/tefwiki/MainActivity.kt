@@ -398,6 +398,11 @@ class MainActivity : AppCompatActivity() {
         <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="stylesheet" href="./bulma.css">
+        <style>
+            hr {
+                background-color: #888888
+            }        
+        </style>
     </head>
     <body id="body" style="background: #FBF8ED">
             <div class="container">
