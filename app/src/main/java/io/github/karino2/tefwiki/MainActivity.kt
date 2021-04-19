@@ -84,6 +84,7 @@ class MainActivity : AppCompatActivity() {
 
     val webView : WebView by lazy {
         val view = findViewById<WebView>(R.id.webView)
+        view.settings.javaScriptEnabled = true
         view.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (request.url.scheme == "tefwiki")
@@ -398,6 +399,8 @@ class MainActivity : AppCompatActivity() {
         <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="stylesheet" href="./bulma.css">
+        <link rel="stylesheet" href="./prism.css">
+        <script src="./prism.js"></script>
         <style>
             hr {
                 background-color: #888888
