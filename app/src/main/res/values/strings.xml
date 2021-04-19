@@ -12,4 +12,5 @@
     <string name="label_oss_license">OSS license</string>
     <string name="summary_oss_license">Show OSS library licenses which TeFWiki use.</string>
     <string name="label_ok">OK</string>
+    <string name="reload_msg">Reload</string>
 </resources>

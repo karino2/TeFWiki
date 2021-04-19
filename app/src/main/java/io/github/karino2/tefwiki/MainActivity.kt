@@ -571,6 +571,7 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
             R.id.menu_item_reload -> {
+                showMessage(getString(R.string.reload_msg))
                 openWikiLinkWithoutHistory(currentFileName)
                 updateRecents()
                 return true
