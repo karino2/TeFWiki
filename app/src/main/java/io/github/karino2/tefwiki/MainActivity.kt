@@ -23,7 +23,6 @@ import androidx.core.view.GravityCompat
 import androidx.core.widget.NestedScrollView
 import androidx.documentfile.provider.DocumentFile
 import androidx.drawerlayout.widget.DrawerLayout
-import androidx.lifecycle.coroutineScope
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.whenStarted
 import androidx.preference.PreferenceManager
@@ -50,9 +49,7 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
 import java.util.*
-import java.util.prefs.PreferenceChangeEvent
 import kotlin.collections.ArrayDeque
-import kotlin.coroutines.CoroutineContext
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -90,7 +87,9 @@ class MainActivity : AppCompatActivity() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (request.url.scheme == "tefwiki")
                 {
-                    openWikiLink(request.url.host!!)
+                    ls.launch {
+                        openWikiLink(request.url.host!!)
+                    }
                 }
                 else
                 {
@@ -136,8 +135,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun updateRecents() {
-        lifecycle.coroutineScope.launch(Dispatchers.IO) {
+    suspend fun updateRecents() = coroutineScope {
+        withContext(Dispatchers.IO) {
             whenStarted {
                 val files =
                         wikiRoot.listFiles()
@@ -160,8 +159,10 @@ class MainActivity : AppCompatActivity() {
         val list = findViewById<ListView>(R.id.navigation_recents_list)
         list.setOnItemClickListener { parent, view, position, id ->
             val doc = view.tag as DocumentFile
-            openMd(doc)
             drawerLayout.closeDrawers()
+            ls.launch {
+                openMd(doc)
+            }
         }
         list
     }
@@ -216,7 +217,9 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 val last = history.last()
-                openWikiLinkWithoutHistory(last)
+                ls.launch {
+                    openWikiLinkWithoutHistory(last)
+                }
             }
         })
 
@@ -364,23 +367,27 @@ class MainActivity : AppCompatActivity() {
 
     var currentFileName = "Home.md"
 
-    fun openWikiLink(fileName: String) {
-        val doc = wikiRoot.findFile(fileName)
-        if (doc == null) {
-            startEditActivityForNew(fileName)
-            return
+    suspend fun openWikiLink(fileName: String) = coroutineScope{
+        wikiRoot.findFile(fileName)?.let {
+            openMd(it)
+            return@coroutineScope
         }
-        openMd(doc)
+        withContext(Dispatchers.Main) {
+            startEditActivityForNew(fileName)
+        }
     }
 
-    fun openWikiLinkWithoutHistory(fileName: String) {
-        val doc = wikiRoot.findFile(fileName)
-        if (doc == null) {
-            showMessage("File in history is deleted. Finish activity.")
-            finish()
-            return
+    suspend fun openWikiLinkWithoutHistory(fileName: String) = coroutineScope {
+        withContext(Dispatchers.IO) {
+            wikiRoot.findFile(fileName)?.let {
+                openMdWithoutHistory(it)
+                return@withContext
+            }
+            withContext(Dispatchers.Main) {
+                showMessage("File in history is deleted. Finish activity.")
+                finish()
+            }
         }
-        openMdWithoutHistory(doc)
     }
 
 
@@ -432,38 +439,44 @@ class MainActivity : AppCompatActivity() {
 
     var mdSrc = ""
 
-    fun openMdWithoutHistory( file: DocumentFile ) {
-        val istream = contentResolver.openInputStream(file.uri)
-        istream.use {
-            val reader = BufferedReader(InputStreamReader(it))
-            val src = reader.readText()
-            openMdContent(file, src)
+    suspend fun openMdWithoutHistory( file: DocumentFile ) = coroutineScope {
+        withContext(Dispatchers.IO) {
+            contentResolver.openInputStream(file.uri).use {
+                val reader = BufferedReader(InputStreamReader(it))
+                val src = reader.readText()
+                openMdContent(file, src)
+            }
+
         }
     }
 
-    fun openMd( file: DocumentFile ) {
+    suspend fun openMd( file: DocumentFile ) {
         openMdWithoutHistory(file)
         pushHistory(file)
     }
 
     val nestedScrollView : NestedScrollView by lazy { findViewById(R.id.nestedScrollView) }
 
-    private fun openMdContent(file: DocumentFile, content: String) {
-        currentFileName = file.name!!
-        mdSrc = content
-        val html = parseMd(content)
+    suspend fun openMdContent(file: DocumentFile, content: String) = coroutineScope {
+        withContext(Dispatchers.IO) {
+            currentFileName = file.name!!
+            mdSrc = content
+            val html = parseMd(content)
 
-        val title = currentFileName.removeSuffix(".md")
-        val header = buildHeader(title, file.lastModified())
+            val title = currentFileName.removeSuffix(".md")
+            val header = buildHeader(title, file.lastModified())
+            withContext(Dispatchers.Main) {
+                webView.loadDataWithBaseURL(
+                        "file:///android_asset/",
+                        header + html + footer,
+                        "text/html",
+                        null,
+                        null
+                )
+                nestedScrollView.scrollTo(0, 0)
+            }
+        }
 
-        webView.loadDataWithBaseURL(
-            "file:///android_asset/",
-            header + html + footer,
-            "text/html",
-            null,
-            null
-        )
-        nestedScrollView.scrollTo(0, 0)
     }
 
     val defaultHome = """
@@ -520,8 +533,10 @@ class MainActivity : AppCompatActivity() {
             val df = wikiRoot
             val home = ensureHome(df)
             history.clear()
-            openMd(home)
-            updateRecents()
+            ls.launch {
+                openMd(home)
+                updateRecents()
+            }
         }catch (e: RuntimeException) {
             showMessage(this, e.message!!)
         }
@@ -545,8 +560,10 @@ class MainActivity : AppCompatActivity() {
                     val fileName = resultData!!.getStringExtra("MD_FILE_NAME")
                     val content = resultData!!.getStringExtra("MD_CONTENT")
                     createOrWriteContent(fileName, content)?.let {
-                        openMdContent(it, content)
-                        updateRecents()
+                        ls.launch {
+                            openMdContent(it, content)
+                            updateRecents()
+                        }
                     }
                 }
                 return
@@ -573,8 +590,7 @@ class MainActivity : AppCompatActivity() {
             }
             R.id.menu_item_reload -> {
                 showMessage(getString(R.string.reload_msg))
-                lifecycleScope.launch {
-                    delay(1)
+                ls.launch {
                     openWikiLinkWithoutHistory(currentFileName)
                     updateRecents()
                 }
@@ -625,5 +641,7 @@ class MainActivity : AppCompatActivity() {
     private fun startEditActivityForNew(fileName: String) {
         startInternalEditActivity(fileName, "")
     }
+
+    val ls : CoroutineScope by lazy { lifecycleScope }
 
 }
