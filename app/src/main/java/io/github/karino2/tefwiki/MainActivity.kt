@@ -24,6 +24,7 @@ import androidx.core.widget.NestedScrollView
 import androidx.documentfile.provider.DocumentFile
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.coroutineScope
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.whenStarted
 import androidx.preference.PreferenceManager
 import com.google.android.material.navigation.NavigationView
@@ -572,8 +573,11 @@ class MainActivity : AppCompatActivity() {
             }
             R.id.menu_item_reload -> {
                 showMessage(getString(R.string.reload_msg))
-                openWikiLinkWithoutHistory(currentFileName)
-                updateRecents()
+                lifecycleScope.launch {
+                    delay(1)
+                    openWikiLinkWithoutHistory(currentFileName)
+                    updateRecents()
+                }
                 return true
             }
             R.id.menu_item_setting -> {
