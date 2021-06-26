@@ -85,11 +85,17 @@ class MainActivity : AppCompatActivity() {
         view.settings.javaScriptEnabled = true
         view.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                if (request.url.scheme == "tefwiki")
+                val url = request.url
+                if (url.scheme == "tefwiki")
                 {
                     ls.launch {
                         openWikiLink(request.url.host!!)
                     }
+                }
+                else if (url.scheme == "file")
+                {
+                    // to ignore iframe, just ignore all file scheme loading.
+                    return false
                 }
                 else
                 {
