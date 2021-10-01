@@ -563,8 +563,8 @@ class MainActivity : AppCompatActivity() {
             }
             REQUEST_EDIT_MD-> {
                 if(resultCode == Activity.RESULT_OK) {
-                    val fileName = resultData!!.getStringExtra("MD_FILE_NAME")
-                    val content = resultData!!.getStringExtra("MD_CONTENT")
+                    val fileName = resultData!!.getStringExtra("MD_FILE_NAME")!!
+                    val content = resultData.getStringExtra("MD_CONTENT")!!
                     createOrWriteContent(fileName, content)?.let {
                         ls.launch {
                             openMdContent(it, content)

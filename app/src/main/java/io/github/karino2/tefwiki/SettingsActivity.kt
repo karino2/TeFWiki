@@ -16,7 +16,7 @@ import androidx.preference.PreferenceFragmentCompat
 class SettingsActivity : AppCompatActivity(R.layout.activity_settings) {
     class OSSLicenseDialog : DialogFragment() {
         override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-            val webView = WebView(activity)
+            val webView = WebView(requireContext())
             webView.loadUrl("file:///android_asset/open_source_licenses.html")
 
             return AlertDialog.Builder(requireContext())

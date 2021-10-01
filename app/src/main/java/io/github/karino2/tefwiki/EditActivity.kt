@@ -34,7 +34,7 @@ class EditActivity : AppCompatActivity() {
         supportActionBar!!.setDisplayHomeAsUpEnabled(true)
 
         intent?.let {
-            fileName = it.getStringExtra("MD_FILE_NAME")
+            fileName = it.getStringExtra("MD_FILE_NAME")!!
             editText.setText(it.getStringExtra("MD_CONTENT"))
 
             supportActionBar!!.title = fileName
