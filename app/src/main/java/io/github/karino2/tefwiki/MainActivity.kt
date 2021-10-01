@@ -47,6 +47,7 @@ import java.io.BufferedReader
 import java.io.BufferedWriter
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import java.nio.file.Paths
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayDeque
@@ -86,20 +87,63 @@ class MainActivity : AppCompatActivity() {
         view.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url
-                if (url.scheme == "tefwiki")
-                {
-                    ls.launch {
-                        openWikiLink(request.url.host!!)
+                when (url.scheme) {
+                    "tefwiki" -> {
+                        val host = url.host
+                        val pathSegments = url.pathSegments
+                        if(pathSegments.size == 0) {
+                            ls.launch {
+                                openWikiLink(request.url.host!!)
+                            }
+                        } else {
+                            // goto subwiki.
+                            //
+                            // ex. RandomThoughts/Home.md
+                            // host == "RandomThoughts"
+                            // pathSegments == ["Home.md"]
+                            val relativeDir = (listOf(host) + pathSegments.subList(0, pathSegments.size - 1))
+
+                            val prevCur = currentRelative
+
+                            currentRelative = (currentRelative?.let { it.split("/") + relativeDir } ?: relativeDir).joinToString("/")
+
+                            // create dir here because it strange to go to subwiki and there is no dir (for example, what is the correct behavior of Recent Changes?)
+                            ensureCurrentDir()?.let {
+                                ls.launch {
+                                    openWikiLink(pathSegments.last())
+                                    history.clear()
+                                    updateRecents()
+                                }
+                                return true
+                            }
+
+                            // fail to create currentRelative, revert.
+                            showMessage("Can't create dir $currentRelative")
+                            currentRelative = prevCur
+                        }
                     }
-                }
-                else if (url.scheme == "file")
-                {
-                    // to ignore iframe, just ignore all file scheme loading.
-                    return false
-                }
-                else
-                {
-                    openUriExternal(request.url!!)
+                    "tefwikidir" -> {
+                        // ex. tefwikidir:///root/SubWiki1
+                        //
+                        // Only for go up (bread crumbs) now.
+                        // set currentRelative and goto Home.md
+
+                        val pathSegments = url.pathSegments
+                        currentRelative = if(pathSegments.size == 0) null else pathSegments.joinToString("/")
+                        ensureHome(currentDir!!) // currentDir after up is always succeed.
+                        ls.launch {
+                            openWikiLink("Home.md")
+                            history.clear()
+                            updateRecents()
+                        }
+                    }
+                    "file" -> {
+                        // to ignore iframe, just ignore all file scheme loading.
+                        return false
+                    }
+                    else -> {
+                        openUriExternal(request.url!!)
+                    }
                 }
                 return true
             }
@@ -145,7 +189,7 @@ class MainActivity : AppCompatActivity() {
         withContext(Dispatchers.IO) {
             whenStarted {
                 val files =
-                        wikiRoot.listFiles()
+                        currentDir!!.listFiles()
                                 .filter{ it.name!!.endsWith(".md") }
                                 .sortedByDescending { it.lastModified() }
                                 .take(20)
@@ -176,7 +220,6 @@ class MainActivity : AppCompatActivity() {
     val navigationView : NavigationView by lazy {
         findViewById(R.id.navigation_view)
     }
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -373,8 +416,21 @@ class MainActivity : AppCompatActivity() {
 
     var currentFileName = "Home.md"
 
+    val currentDir : DocumentFile?
+    get() {
+        return currentRelative?.let { relative ->
+            return wikiRoot.findFile(relative)
+
+        } ?: wikiRoot
+
+    }
+
+    fun findFile(fileName: String) : DocumentFile? {
+        return currentDir?.findFile(fileName)
+    }
+
     suspend fun openWikiLink(fileName: String) = coroutineScope{
-        wikiRoot.findFile(fileName)?.let {
+        findFile(fileName)?.let {
             openMd(it)
             return@coroutineScope
         }
@@ -385,7 +441,7 @@ class MainActivity : AppCompatActivity() {
 
     suspend fun openWikiLinkWithoutHistory(fileName: String) = coroutineScope {
         withContext(Dispatchers.IO) {
-            wikiRoot.findFile(fileName)?.let {
+            currentDir!!.findFile(fileName)?.let {
                 openMdWithoutHistory(it)
                 return@withContext
             }
@@ -402,7 +458,7 @@ class MainActivity : AppCompatActivity() {
         return sdf.format(lastModified)
     }
 
-    fun buildHeader(title: String, lastModified: Long) : String {
+    fun buildHeader(title: String, breadCrumbs: String, lastModified: Long) : String {
         val mtime = formatMTime(lastModified)
         return """
     <!DOCTYPE html>
@@ -426,6 +482,11 @@ class MainActivity : AppCompatActivity() {
                 <section class="hero is-dark">
                     <div class="hero-body">
                         <div class="container">
+                            <nav class="breadcrumb" aria-label="breadcrumbs">
+                                <ul id="bread">
+                                    $breadCrumbs
+                                </ul>
+                            </nav>
                             <h1 class="title" id="title">$title</h1>
                             <h3 class="subtitle" id="date">${mtime}</h3>
                         </div>
@@ -463,6 +524,35 @@ class MainActivity : AppCompatActivity() {
 
     val nestedScrollView : NestedScrollView by lazy { findViewById(R.id.nestedScrollView) }
 
+    /*
+        currentRelative: relative path of SubWiki.
+        root: null
+        root/Sub1: "Sub1"
+        root/Sub1/Sub2: "Sub1/Sub2"
+     */
+    var currentRelative :String? = null
+
+    fun buildBreadCrumbs() : String {
+        return currentRelative?.let { relative->
+            // skip head slash and split.
+            val dirs = relative.split('/')
+
+            buildString {
+                val accumDirs = arrayListOf("root")
+                appendLine("<li><a aria-current=\"page\" class=\"wikidir\" href=\"tefwikidir://root\">Root</a></li>")
+                dirs.subList(0, dirs.size-1).forEach { cur->
+                    accumDirs.add(cur)
+                    val absPath = accumDirs.joinToString("/")
+                    appendLine("<li><a class=\"wikidir\" href=\"tefwikidir://${absPath}\">${cur}</a></li>")
+                }
+                val cur = dirs.last()
+                accumDirs.add(cur)
+                val absPath = accumDirs.joinToString("/")
+                appendLine("<li class=\"is-active\"><a class=\"wikidir\" href=\"tefwikidir://${absPath}\">${cur}</a></li>")
+            }
+        } ?: ""
+    }
+
     suspend fun openMdContent(file: DocumentFile, content: String) = coroutineScope {
         withContext(Dispatchers.IO) {
             currentFileName = file.name!!
@@ -470,7 +560,7 @@ class MainActivity : AppCompatActivity() {
             val html = parseMd(content)
 
             val title = currentFileName.removeSuffix(".md")
-            val header = buildHeader(title, file.lastModified())
+            val header = buildHeader(title, buildBreadCrumbs(), file.lastModified())
             withContext(Dispatchers.Main) {
                 webView.loadDataWithBaseURL(
                         "file:///android_asset/",
@@ -506,17 +596,27 @@ class MainActivity : AppCompatActivity() {
         return doc
     }
 
+    fun ensureCurrentDir() = currentDir ?: let {
+            wikiRoot.createDirectory(currentRelative!!)
+            currentDir
+    }
+
     fun createOrWriteContent(fileName: String, content: String) : DocumentFile? {
-        wikiRoot.findFile(fileName)?.let {
+        currentDir?.findFile(fileName)?.let {
             writeContent(it, content)
             return it
         }
 
-        wikiRoot.createFile("text/markdown", fileName)?.let {
-            writeContent(it, content)
-            return it
+        ensureCurrentDir()?.let { curDir ->
+            curDir.createFile("text/markdown", fileName)?.let {
+                writeContent(it, content)
+                return it
+            }
+            showMessage("Can't create file $fileName")
+            return null
         }
-        showMessage("Can't create file $fileName")
+
+        showMessage("Can't create dir $currentRelative")
         return null
     }
 
@@ -629,7 +729,7 @@ class MainActivity : AppCompatActivity() {
     private fun startEditActivity(fileName: String, content: String) {
         if(useExternalEditor)
         {
-            wikiRoot.findFile(fileName)?.let {doc ->
+            currentDir?.findFile(fileName)?.let {doc ->
                 Intent().apply {
                     action = Intent.ACTION_VIEW
                     setDataAndType(doc.uri, "text/markdown")
