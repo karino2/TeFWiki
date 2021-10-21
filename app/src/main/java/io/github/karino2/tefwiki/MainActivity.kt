@@ -1,12 +1,14 @@
 package io.github.karino2.tefwiki
 
 import android.app.Activity
+import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
+import android.provider.DocumentsContract
 import android.view.*
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -47,10 +49,33 @@ import java.io.BufferedReader
 import java.io.BufferedWriter
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
-import java.nio.file.Paths
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayDeque
+
+// similar to DocumentFile, but store metadata at first query.
+data class FastFile(val uri: Uri, val name: String, val lastModified: Long)
+
+fun DocumentFile.toFastFile() = FastFile(this.uri, this.name ?: "", this.lastModified())
+
+fun listFiles(resolver: ContentResolver, parent: Uri) : Sequence<FastFile> {
+    val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parent, DocumentsContract.getTreeDocumentId(parent))
+    val cursor = resolver.query(childrenUri, null,
+        null, null, null, null) ?: return emptySequence()
+
+    return sequence {
+        cursor.use {cur ->
+            while(cur.moveToNext()) {
+                val docId = cur.getString(0)
+                val uri = DocumentsContract.buildDocumentUriUsingTree(parent, docId)
+
+                val disp = cur.getString(cur.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME))
+                val lm = cur.getLong(cur.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED))
+                yield(FastFile(uri, disp, lm))
+            }
+        }
+    }
+}
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -92,8 +117,10 @@ class MainActivity : AppCompatActivity() {
                         val host = url.host
                         val pathSegments = url.pathSegments
                         if(pathSegments.size == 0) {
+                            val fileName = request.url.host!!
+                            showLoading()
                             ls.launch {
-                                openWikiLink(request.url.host!!)
+                                openWikiLink(fileName)
                             }
                         } else {
                             // goto subwiki.
@@ -164,21 +191,21 @@ class MainActivity : AppCompatActivity() {
 
     val history = ArrayDeque<String>()
 
-    fun pushHistory(doc: DocumentFile) {
+    fun pushHistory(doc: FastFile) {
         if (!history.isEmpty() && history.last() == doc.name)
             return
-        history.addLast(doc.name!!)
+        history.addLast(doc.name)
     }
 
-    val recentFiles : ArrayList<DocumentFile> = ArrayList()
+    val recentFiles : ArrayList<FastFile> = ArrayList()
 
-    val adapter : ArrayAdapter<DocumentFile> by lazy {
-        object: ArrayAdapter<DocumentFile>(this, R.layout.recent_item, recentFiles) {
+    val adapter : ArrayAdapter<FastFile> by lazy {
+        object: ArrayAdapter<FastFile>(this, R.layout.recent_item, recentFiles) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val view = convertView ?: layoutInflater.inflate(R.layout.recent_item, null)
                 val doc = getItem(position)!!
-                view.findViewById<TextView>(R.id.recentFileName).text = doc.name!!.removeSuffix(".md")
-                view.findViewById<TextView>(R.id.recentDate).text = formatMTime(doc.lastModified())
+                view.findViewById<TextView>(R.id.recentFileName).text = doc.name.removeSuffix(".md")
+                view.findViewById<TextView>(R.id.recentDate).text = formatMTime(doc.lastModified)
                 view.tag = doc
                 return view
             }
@@ -188,27 +215,25 @@ class MainActivity : AppCompatActivity() {
     suspend fun updateRecents() = coroutineScope {
         withContext(Dispatchers.IO) {
             whenStarted {
-                val files =
-                        currentDir!!.listFiles()
-                                .filter{ it.name!!.endsWith(".md") }
-                                .sortedByDescending { it.lastModified() }
-                                .take(20)
+
+                val files = listFiles(contentResolver, currentDir!!.uri)
+                    .filter{ it.name.endsWith(".md") }
+                    .sortedByDescending { it.lastModified }
+                    .take(20)
 
                 recentFiles.clear()
                 recentFiles.addAll(files)
                 withContext(Dispatchers.Main) {
                     adapter.notifyDataSetChanged()
                 }
-
             }
-
         }
     }
 
     val recentsList : ListView by lazy {
         val list = findViewById<ListView>(R.id.navigation_recents_list)
         list.setOnItemClickListener { parent, view, position, id ->
-            val doc = view.tag as DocumentFile
+            val doc = view.tag as FastFile
             drawerLayout.closeDrawers()
             ls.launch {
                 openMd(doc)
@@ -280,7 +305,7 @@ class MainActivity : AppCompatActivity() {
         requestRootPickup()
     }
 
-    private fun MainActivity.requestRootPickup() {
+    private fun requestRootPickup() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
         startActivityForResult(intent, REQUEST_OPEN_TREE_ID)
         showMessage("Choose wiki folder")
@@ -430,19 +455,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     suspend fun openWikiLink(fileName: String) = coroutineScope{
-        findFile(fileName)?.let {
-            openMd(it)
-            return@coroutineScope
-        }
-        withContext(Dispatchers.Main) {
-            startEditActivityForNew(fileName)
+        withContext(Dispatchers.IO) {
+            findFile(fileName)?.let {
+                openMd(it.toFastFile())
+            } ?: withContext(Dispatchers.Main) {
+                startEditActivityForNew(fileName)
+            }
         }
     }
 
     suspend fun openWikiLinkWithoutHistory(fileName: String) = coroutineScope {
         withContext(Dispatchers.IO) {
             currentDir!!.findFile(fileName)?.let {
-                openMdWithoutHistory(it)
+                openMdWithoutHistory(it.toFastFile())
                 return@withContext
             }
             withContext(Dispatchers.Main) {
@@ -506,7 +531,7 @@ class MainActivity : AppCompatActivity() {
 
     var mdSrc = ""
 
-    suspend fun openMdWithoutHistory( file: DocumentFile ) = coroutineScope {
+    suspend fun openMdWithoutHistory( file: FastFile ) = coroutineScope {
         withContext(Dispatchers.IO) {
             contentResolver.openInputStream(file.uri).use {
                 val reader = BufferedReader(InputStreamReader(it))
@@ -517,7 +542,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    suspend fun openMd( file: DocumentFile ) {
+    suspend fun openMd( file: FastFile ) {
         openMdWithoutHistory(file)
         pushHistory(file)
     }
@@ -553,14 +578,26 @@ class MainActivity : AppCompatActivity() {
         } ?: ""
     }
 
-    suspend fun openMdContent(file: DocumentFile, content: String) = coroutineScope {
+    fun showLoading() {
+        webView.loadDataWithBaseURL(
+            "file:///android_asset/",
+            "<html><body><h1>Lading...</h1></body></html>",
+            "text/html",
+            null,
+            null
+        )
+        nestedScrollView.scrollTo(0, 0)
+
+    }
+
+    suspend fun openMdContent(file: FastFile, content: String) = coroutineScope {
         withContext(Dispatchers.IO) {
-            currentFileName = file.name!!
+            currentFileName = file.name
             mdSrc = content
             val html = parseMd(content)
 
             val title = currentFileName.removeSuffix(".md")
-            val header = buildHeader(title, buildBreadCrumbs(), file.lastModified())
+            val header = buildHeader(title, buildBreadCrumbs(), file.lastModified)
             withContext(Dispatchers.Main) {
                 webView.loadDataWithBaseURL(
                         "file:///android_asset/",
@@ -572,7 +609,6 @@ class MainActivity : AppCompatActivity() {
                 nestedScrollView.scrollTo(0, 0)
             }
         }
-
     }
 
     val defaultHome = """
@@ -601,16 +637,16 @@ class MainActivity : AppCompatActivity() {
             currentDir
     }
 
-    fun createOrWriteContent(fileName: String, content: String) : DocumentFile? {
+    fun createOrWriteContent(fileName: String, content: String) : FastFile? {
         currentDir?.findFile(fileName)?.let {
             writeContent(it, content)
-            return it
+            return it.toFastFile()
         }
 
         ensureCurrentDir()?.let { curDir ->
             curDir.createFile("text/markdown", fileName)?.let {
                 writeContent(it, content)
-                return it
+                return it.toFastFile()
             }
             showMessage("Can't create file $fileName")
             return null
@@ -640,7 +676,7 @@ class MainActivity : AppCompatActivity() {
             val home = ensureHome(df)
             history.clear()
             ls.launch {
-                openMd(home)
+                openMd(home.toFastFile())
                 updateRecents()
             }
         }catch (e: RuntimeException) {
