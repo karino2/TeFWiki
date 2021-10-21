@@ -59,7 +59,7 @@ data class FastFile(val uri: Uri, val name: String, val lastModified: Long)
 fun DocumentFile.toFastFile() = FastFile(this.uri, this.name ?: "", this.lastModified())
 
 fun listFiles(resolver: ContentResolver, parent: Uri) : Sequence<FastFile> {
-    val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parent, DocumentsContract.getTreeDocumentId(parent))
+    val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parent, DocumentsContract.getDocumentId(parent))
     val cursor = resolver.query(childrenUri, null,
         null, null, null, null) ?: return emptySequence()
 
@@ -218,6 +218,7 @@ class MainActivity : AppCompatActivity() {
 
                 val files = listFiles(contentResolver, currentDir!!.uri)
                     .filter{ it.name.endsWith(".md") }
+                    .toList()
                     .sortedByDescending { it.lastModified }
                     .take(20)
 
