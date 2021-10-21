@@ -137,8 +137,8 @@ class MainActivity : AppCompatActivity() {
                             // create dir here because it strange to go to subwiki and there is no dir (for example, what is the correct behavior of Recent Changes?)
                             ensureCurrentDir()?.let {
                                 ls.launch {
-                                    openWikiLink(pathSegments.last())
                                     history.clear()
+                                    openWikiLink(pathSegments.last())
                                     updateRecents()
                                 }
                                 return true
@@ -159,8 +159,8 @@ class MainActivity : AppCompatActivity() {
                         currentRelative = if(pathSegments.size == 0) null else pathSegments.joinToString("/")
                         ensureHome(currentDir!!) // currentDir after up is always succeed.
                         ls.launch {
-                            openWikiLink("Home.md")
                             history.clear()
+                            openWikiLink("Home.md")
                             updateRecents()
                         }
                     }
