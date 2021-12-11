@@ -9,13 +9,15 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.TeFWiki">
-        <activity android:name=".SettingsActivity"
-            android:theme="@style/Theme.TeFWiki.ActionBar"></activity>
+        <activity
+            android:name=".SettingsActivity"
+            android:theme="@style/Theme.TeFWiki.ActionBar" />
         <activity
             android:name=".EditActivity"
             android:theme="@style/Theme.TeFWiki.ActionBar"
             android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".MainActivity">
+        <activity android:name=".MainActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
