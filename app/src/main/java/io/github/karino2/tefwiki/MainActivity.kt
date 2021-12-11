@@ -247,6 +247,8 @@ class MainActivity : AppCompatActivity() {
         findViewById(R.id.navigation_view)
     }
 
+    var onCreateJob : Job? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -299,11 +301,39 @@ class MainActivity : AppCompatActivity() {
         })
 
         lastUriStr(this)?.let {
-            updateFolder()
+            onCreateJob = updateFolder()
             return
         }
 
         requestRootPickup()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("CUR_REL", currentRelative)
+        outState.putStringArray("HISTORY", history.toTypedArray())
+        super.onSaveInstanceState(outState)
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        super.onRestoreInstanceState(savedInstanceState)
+        currentRelative = savedInstanceState.getString("CUR_REL")
+        val savedHist = savedInstanceState.getStringArray("HISTORY")!!.toList()
+
+        if(savedHist.isNotEmpty()) {
+            // cancel loading for Home in root wiki launched in onCreate.
+            onCreateJob?.let {
+                it.cancel()
+                onCreateJob = null
+            }
+
+            history.clear()
+            history.addAll(savedHist)
+            val last = history.last()
+            ls.launch {
+                openWikiLinkWithoutHistory(last)
+                showMessage("deb: onrestore")
+            }
+        }
     }
 
     private fun requestRootPickup() {
@@ -671,8 +701,8 @@ class MainActivity : AppCompatActivity() {
         return DocumentFile.fromTreeUri(this, Uri.parse(lastUriStr(this))) ?: throw Exception("can't open dir")
     }
 
-    fun updateFolder() {
-        try{
+    fun updateFolder() : Job? {
+        return try{
             val df = wikiRoot
             val home = ensureHome(df)
             history.clear()
@@ -682,6 +712,7 @@ class MainActivity : AppCompatActivity() {
             }
         }catch (e: RuntimeException) {
             showMessage(this, e.message!!)
+            null
         }
     }
 
