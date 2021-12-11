@@ -331,7 +331,7 @@ class MainActivity : AppCompatActivity() {
             val last = history.last()
             ls.launch {
                 openWikiLinkWithoutHistory(last)
-                showMessage("deb: onrestore")
+                updateRecents()
             }
         }
     }
