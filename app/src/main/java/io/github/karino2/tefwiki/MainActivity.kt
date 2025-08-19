@@ -10,7 +10,9 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.DocumentsContract
 import android.view.*
+import android.webkit.MimeTypeMap
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ArrayAdapter
@@ -35,6 +37,7 @@ import org.intellij.markdown.MarkdownElementType
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.MarkdownTokenTypes
 import org.intellij.markdown.ast.ASTNode
+import org.intellij.markdown.ast.findChildOfType
 import org.intellij.markdown.ast.getTextInNode
 import org.intellij.markdown.flavours.gfm.GFMElementTypes
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
@@ -106,10 +109,43 @@ class MainActivity : AppCompatActivity() {
 
     val settingPrefs : SharedPreferences by lazy {  PreferenceManager.getDefaultSharedPreferences(this) }
 
+    fun findFileUnder(names: List<String>) : DocumentFile? {
+        var file = currentDir ?: return null
+        for(name in names) {
+            file = file.findFile(name) ?: return null
+        }
+        return file
+    }
+
     val webView : WebView by lazy {
         val view = findViewById<WebView>(R.id.webView)
         view.settings.javaScriptEnabled = true
         view.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                val url = request.url
+
+                if (url.scheme == "tefwikiimg") {
+                    try {
+                        // url: tefwikiimg://imgs/GestureDrawing/2025_0819_093728.png
+                        val host = url.host ?: ""
+                        val paths = listOf(host) + url.pathSegments
+                        val file = findFileUnder(paths) ?:  return super.shouldInterceptRequest(view, request)
+
+                        val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(MimeTypeMap.getFileExtensionFromUrl(url.toString()))
+                            ?: "application/octet-stream"
+                        val stream = contentResolver.openInputStream(file.uri)
+
+                        return WebResourceResponse(mimeType, "UTF-8", stream)
+                    } catch (e: Exception) {
+                        // ファイルが見つからないなどのエラー処理
+                        e.printStackTrace()
+                        return WebResourceResponse("text/plain", "UTF-8", null)
+                    }
+                }
+
+                return super.shouldInterceptRequest(view, request)
+            }
+
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url
                 when (url.scheme) {
@@ -406,6 +442,43 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+    open class CustomImageGeneratingProvider : GeneratingProvider {
+
+        override fun processNode(visitor: HtmlGenerator.HtmlGeneratingVisitor, text: String, node: ASTNode) {
+            /*
+              node hierarchy
+
+              Markdown:IMAGE(children 2)
+                - Markdown:"!"
+                - Markdown:INLINE_LINK
+                  - Markdown:LINK_TEXT
+                    - Markdown:'['
+                    - Markdown:TEXT
+                    - Markdown:']'
+                  - Markdown:"("
+                  - Markdown:LINK_DESTINATION
+                    - Markdown:TEXT
+                  - Markdown:")"
+             */
+            val inlineLink = node.findChildOfType(MarkdownElementTypes.INLINE_LINK) ?: return
+            val linkText = inlineLink.findChildOfType(MarkdownElementTypes.LINK_TEXT) ?: return
+            val linkDestinationNode = inlineLink.findChildOfType(MarkdownElementTypes.LINK_DESTINATION) ?: return
+
+            if(linkText.children.size != 3) return
+
+            // '[' altText ']'
+            val altText = text.substring(linkText.startOffset+1, linkText.endOffset-1)
+            val rawPath = text.substring(linkDestinationNode.startOffset, linkDestinationNode.endOffset)
+
+            val uri = runCatching { URI(rawPath) }.getOrNull()
+            val isRelative = uri == null || !uri.isAbsolute
+
+            val finalSrc = if (isRelative) "tefwikiimg://$rawPath" else rawPath
+
+            visitor.consumeTagOpen(node, "img", "src=\"$finalSrc\"", "alt=\"$altText\"")
+            visitor.consumeTagClose("img")
+        }
+    }
 
     open class WikiLinkProvider : GeneratingProvider {
         override fun processNode(visitor: HtmlGenerator.HtmlGeneratingVisitor, text: String, node: ASTNode) {
@@ -452,6 +525,7 @@ class MainActivity : AppCompatActivity() {
                 return super.createHtmlGeneratingProviders(linkMap, baseURI) + hashMapOf(
                         MarkdownElementTypes.MARKDOWN_FILE to MdRootGenerator(),
                         GFMElementTypes.STRIKETHROUGH to SimpleInlineTagProvider("s", 2, -2),
+                        MarkdownElementTypes.IMAGE to CustomImageGeneratingProvider(),
                         WIKI_LINK to WikiLinkProvider(),
                 )
             }
